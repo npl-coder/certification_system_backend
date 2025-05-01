@@ -86,3 +86,9 @@ temp/
 
 # Test output
 test-output/
+
+# App specifics
+uploads/certificates/*
+!uploads/certificates/.gitkeep
+uploads/templates/*
+!uploads/templates/.gitkeep
