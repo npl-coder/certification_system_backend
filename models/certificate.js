@@ -27,7 +27,7 @@ const Certificate = sequelize.define(
     },
     issueDate: {
       type: DataTypes.DATE,
-      defaultValue: Sequelize.NOW,
+      defaultValue: DataTypes.NOW ,
     },
     templatePath: {
       type: DataTypes.STRING,
