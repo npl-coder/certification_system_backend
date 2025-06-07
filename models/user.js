@@ -21,7 +21,7 @@ const User = sequelize.define(
       validate: { isEmail: true },
     },
     password: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255), // Ensure sufficient length for bcrypt hash
       allowNull: false,
     },
     role: {
