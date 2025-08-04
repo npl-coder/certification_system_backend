@@ -151,9 +151,13 @@ const generateCertificate = async (data) => {
       const field = mapping.fields[fieldKey];
       const className = `field-${fieldKey}`;
       // Add font fallbacks for better compatibility
-      const fontFamily = field.fontFamily ? 
-        `${field.fontFamily}, Arial, sans-serif` : 
-        'Arial, sans-serif';
+      let fontFamily;
+      if (fieldKey === 'name') {
+        // Use Amsterdam font for recipientName
+        fontFamily = `'Amsterdam', ${field.fontFamily ? field.fontFamily + ',' : ''} Arial, sans-serif`;
+      } else {
+        fontFamily = field.fontFamily ? `${field.fontFamily}, Arial, sans-serif` : 'Arial, sans-serif';
+      }
       
       svgText += `
         .${className} { 
@@ -174,7 +178,7 @@ const generateCertificate = async (data) => {
         const className = `field-${fieldKey}`;
         const textValue = escapeXml(`${field.prefix || ''}${value}${field.suffix || ''}`);
         const textAnchor = field.textAlign === 'center' ? 'middle' : 
-                 field.textAlign === 'right' ? 'end' : 'start';
+             field.textAlign === 'right' ? 'end' : 'start';
         
         // Apply scaling to coordinates and move text down by 100 in y
         const scaledX = Math.round(field.x * scaleX);
@@ -192,16 +196,20 @@ const generateCertificate = async (data) => {
       
       svgText = `
       <svg width="${templateWidth}" height="${templateHeight}">
-        <style>
-        .recipient { fill: #333; font-size: 48px; font-weight: bold; font-family: Arial, sans-serif; }
-        .event { fill: #666; font-size: 36px; font-family: Arial, sans-serif; }
-        .certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
-        .date { fill: #666; font-size: 24px; font-family: Arial, sans-serif; }
-        </style>
-        <text x="${templateWidth/2}" y="${templateHeight*0.42 + 200}" text-anchor="middle" class="recipient">${escapeXml(recipientName)}</text>
-        <text x="${templateWidth/2}" y="${templateHeight*0.53 + 200}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
-        <text x="${templateWidth/2}" y="${templateHeight*0.62 + 200}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
-        <text x="${templateWidth/2}" y="${templateHeight*0.87 + 200}" text-anchor="middle" class="certnum">Certificate #${escapeXml(certificateNumber)}</text>
+      <style>
+      @font-face {
+        font-family: 'Amsterdam';
+        src: url('/fonts/Amsterdam.ttf') format('truetype');
+      }
+      .recipient { fill: #333; font-size: 48px; font-weight: bold; font-family: 'Amsterdam', Arial, sans-serif; }
+      .event { fill: #666; font-size: 36px; font-family: Arial, sans-serif; }
+      .certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
+      .date { fill: #666; font-size: 24px; font-family: Arial, sans-serif; }
+      </style>
+      <text x="${templateWidth/2}" y="${templateHeight*0.42 + 200}" text-anchor="middle" class="recipient">${escapeXml(recipientName)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.53 + 200}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.62 + 200}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.87 + 200}" text-anchor="middle" class="certnum">Certificate #${escapeXml(certificateNumber)}</text>
       </svg>
       `;
     }
