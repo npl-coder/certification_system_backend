@@ -4,7 +4,6 @@ const { User } = require("../models");
 exports.protect = async (req, res, next) => {
   try {
     let token;
-
     // Check if token exists in headers
     if (
       req.headers.authorization &&
@@ -22,7 +21,7 @@ exports.protect = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded token:", decoded); // Debug info
+    // console.log("Decoded token:", decoded); // Debug info
 
     // Find user by id (using user_id to match the database field)
     const user = await User.findByPk(decoded.userId);
@@ -36,6 +35,7 @@ exports.protect = async (req, res, next) => {
 
     // Attach user to request object
     req.user = user;
+    console.log("User : ", user);
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);

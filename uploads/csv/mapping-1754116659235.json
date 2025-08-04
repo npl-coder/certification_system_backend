@@ -1,0 +1,70 @@
+{
+  "fields": {
+    "name": {
+      "x": 400,
+      "y": 250,
+      "fontSize": 48,
+      "fontWeight": "bold",
+      "color": "#333333",
+      "textAlign": "center",
+      "fontFamily": "Arial"
+    },
+    "position": {
+      "x": 400,
+      "y": 300,
+      "fontSize": 24,
+      "fontWeight": "normal",
+      "color": "#666666",
+      "textAlign": "center",
+      "fontFamily": "Arial"
+    },
+    "organization": {
+      "x": 400,
+      "y": 330,
+      "fontSize": 20,
+      "fontWeight": "normal",
+      "color": "#666666",
+      "textAlign": "center",
+      "fontFamily": "Arial"
+    },
+    "score": {
+      "x": 400,
+      "y": 380,
+      "fontSize": 36,
+      "fontWeight": "bold",
+      "color": "#ff6b35",
+      "textAlign": "center",
+      "fontFamily": "Arial",
+      "prefix": "Score: ",
+      "suffix": "/100"
+    },
+    "certificateNumber": {
+      "x": 400,
+      "y": 520,
+      "fontSize": 18,
+      "fontWeight": "normal",
+      "color": "#999999",
+      "textAlign": "center",
+      "fontFamily": "Arial",
+      "prefix": "Certificate #"
+    },
+    "eventDate": {
+      "x": 600,
+      "y": 480,
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "color": "#999999",
+      "textAlign": "right",
+      "fontFamily": "Arial"
+    }
+  },
+  "template": {
+    "width": 800,
+    "height": 600,
+    "backgroundColor": "#ffffff"
+  },
+  "positioning": {
+    "method": "manual",
+    "coordinates": "absolute"
+  }
+}

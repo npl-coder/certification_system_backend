@@ -10,6 +10,8 @@
     "dev": "nodemon app.js",
     "setup": "./scripts/setup.sh",
     "setup:db": "./scripts/setup-db.sh",
+    "seed:dev": "node ./scripts/seed-dev-data.js",
+    "reset:dev": "npm run setup:db && npm run seed:dev",
     "test:interactive": "./scripts/test.sh",
     "test:db": "node test.js",
     "test:health": "curl http://localhost:3000/health",

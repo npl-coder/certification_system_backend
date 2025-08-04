@@ -1,0 +1,66 @@
+{
+  "templateDimensions": {
+    "width": 800,
+    "height": 600
+  },
+  "fields": {
+    "name": {
+      "x": 120,
+      "y": 200,
+      "fontSize": 45,
+      "fontWeight": "bold",
+      "fontColor": "#333333",
+      "fontFamily": "Amsterdam, Arial, sans-serif",
+      "alignment": "left"
+    },
+    "position": {
+      "x": 120,
+      "y": 260,
+      "fontSize": 24,
+      "fontWeight": "normal",
+      "fontColor": "#666666",
+      "fontFamily": "Arial, Arial, sans-serif",
+      "alignment": "left"
+    },
+    "organization": {
+      "x": 120,
+      "y": 300,
+      "fontSize": 20,
+      "fontWeight": "normal",
+      "fontColor": "#666666",
+      "fontFamily": "Arial, Arial, sans-serif",
+      "alignment": "left"
+    },
+    "score": {
+      "x": 500,
+      "y": 260,
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "fontColor": "#2E7D32",
+      "fontFamily": "Arial, Arial, sans-serif",
+      "alignment": "center",
+      "prefix": "Score: ",
+      "suffix": "/100"
+    },
+    "certificateNumber": {
+      "x": 120,
+      "y": 460,
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "fontColor": "#888888",
+      "fontFamily": "Arial, Arial, sans-serif",
+      "alignment": "left",
+      "prefix": "Certificate #"
+    },
+    "eventDate": {
+      "x": 500,
+      "y": 460,
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "fontColor": "#888888",
+      "fontFamily": "Arial, Arial, sans-serif",
+      "alignment": "center",
+      "prefix": "Issued on: "
+    }
+  }
+}

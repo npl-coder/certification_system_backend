@@ -1,0 +1,8 @@
+{
+  "positioning_method": "auto_detect",
+  "field_mappings": {
+    "name": "recipient_name",
+    "course": "course_name",
+    "score": "score"
+  }
+}

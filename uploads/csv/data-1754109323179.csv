@@ -1,0 +1,11 @@
+name,email,course,completion_date,grade
+John Doe,john.doe@example.com,Generative AI Fundamentals,2024-01-15,A
+Jane Smith,jane.smith@example.com,Generative AI Fundamentals,2024-01-16,B+
+Michael Johnson,michael.j@example.com,Generative AI Fundamentals,2024-01-17,A-
+Sarah Wilson,sarah.wilson@example.com,Generative AI Fundamentals,2024-01-18,A
+David Brown,david.brown@example.com,Generative AI Fundamentals,2024-01-19,B
+Emily Davis,emily.davis@example.com,Generative AI Fundamentals,2024-01-20,A+
+Robert Miller,robert.miller@example.com,Generative AI Fundamentals,2024-01-21,B+
+Lisa Anderson,lisa.anderson@example.com,Generative AI Fundamentals,2024-01-22,A
+James Taylor,james.taylor@example.com,Generative AI Fundamentals,2024-01-23,A-
+Maria Garcia,maria.garcia@example.com,Generative AI Fundamentals,2024-01-24,B+

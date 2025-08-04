@@ -5,8 +5,8 @@ const Event = sequelize.define(
   "Event",
   {
     event_id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
     },
     name: {
@@ -26,7 +26,7 @@ const Event = sequelize.define(
       allowNull: true,
     },
     categoryId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       references: {
         model: "categories",
         key: "category_id",

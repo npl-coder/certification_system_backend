@@ -9,6 +9,12 @@ const Certificate = sequelize.define(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    id: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.cert_id;
+      },
+    },
     recipientName: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -37,6 +43,10 @@ const Certificate = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    certificateUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     verificationUrl: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -53,7 +63,7 @@ const Certificate = sequelize.define(
       type: DataTypes.JSON,
     },
     eventId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: "events",

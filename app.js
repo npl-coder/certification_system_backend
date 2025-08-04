@@ -24,10 +24,10 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet()); // Security headers
 app.use(cors()); // CORS
 app.use(morgan("dev")); // Logging
-app.use(express.json()); // Parse JSON
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded data
+app.use(express.json({ limit: '50mb' })); // Parse JSON with increased limit
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Parse URL-encoded data with increased limit
 
-// Static file serving for uploaded files
+// Serve static files for certificates
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
@@ -64,21 +64,25 @@ app.use((err, req, res, next) => {
 });
 
 // Connect to Database and start the server
-db.authenticate()
-  .then(() => {
+const startServer = async () => {
+  try {
+    await db.authenticate();
     console.log("Database connection established successfully.");
-    // Sync models with database
-    return db.sync({ alter: true });
-  })
-  .then(() => {
+    
+    // Sync models with database - prevents alterations to existing tables (recommended for production)
+    await db.sync({ alter: false });
+    console.log("Database synced successfully.");
+    
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
     });
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("Unable to connect to the database:", err);
     process.exit(1);
-  });
+  }
+};
+
+startServer();
 
 module.exports = app;

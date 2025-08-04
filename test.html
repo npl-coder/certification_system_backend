@@ -272,6 +272,13 @@
               class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500"
               rows="2"
             ></textarea>
+            <select
+              id="eventCategoryId"
+              class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Category (Optional)</option>
+              <option value="1">Default Category</option>
+            </select>
             <button
               onclick="createEvent()"
               class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200"
@@ -299,6 +306,12 @@
               class="w-full bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition duration-200"
             >
               <i class="fas fa-list mr-2"></i>Get All Certificates (Admin)
+            </button>
+            <button
+              onclick="showGeneratedCertificates()"
+              class="w-full bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition duration-200"
+            >
+              <i class="fas fa-images mr-2"></i>Show Generated Certificates
             </button>
             <div>
               <input
@@ -329,6 +342,46 @@
                 class="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition duration-200"
               >
                 <i class="fas fa-upload mr-2"></i>Upload Template
+              </button>
+            </div>
+            <div>
+              <label class="block text-white mb-2"
+                >Generate Single Certificate (Admin):</label
+              >
+              <div class="text-sm text-yellow-200 mb-2">
+                <strong>Note:</strong> You must be logged in as admin. Use event
+                ID from "Get All Events" and template path from "Upload
+                Template".
+              </div>
+              <input
+                type="text"
+                id="generateRecipientName"
+                placeholder="Recipient Name (e.g., John Doe)"
+                class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+              <input
+                type="email"
+                id="generateRecipientEmail"
+                placeholder="Recipient Email (e.g., john@example.com)"
+                class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+              <input
+                type="text"
+                id="generateEventId"
+                placeholder="Event ID (get from events list)"
+                class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+              <input
+                type="text"
+                id="generateTemplatePath"
+                placeholder="Template Path (e.g., uploads/templates/template-123.png)"
+                class="w-full px-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 mb-2"
+              />
+              <button
+                onclick="generateSingleCertificate()"
+                class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200"
+              >
+                <i class="fas fa-star mr-2"></i>Generate Certificate
               </button>
             </div>
           </div>
@@ -452,6 +505,7 @@ No API calls made yet. Click any button above to test the API endpoints.</pre
         const url = `${baseUrl}${endpoint}`;
 
         const defaultOptions = {
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
             ...(authToken && { Authorization: `Bearer ${authToken}` }),
@@ -473,7 +527,7 @@ No API calls made yet. Click any button above to test the API endpoints.</pre
 
           displayResponse({
             url,
-            method: options.method || "GET",
+            method: mergedOptions.method,
             status: response.status,
             statusText: response.statusText,
             data,
@@ -483,7 +537,7 @@ No API calls made yet. Click any button above to test the API endpoints.</pre
         } catch (error) {
           displayResponse({
             url,
-            method: options.method || "GET",
+            method: mergedOptions.method,
             status: "ERROR",
             statusText: error.message,
             data: { error: error.message },
@@ -540,7 +594,13 @@ ${JSON.stringify(responseData.data, null, 2)}`;
           });
 
           const data = await response.json();
-          displayResponse(data, response.ok);
+          displayResponse({
+            url: `${baseUrl}/api/auth/login`,
+            method: "POST",
+            status: response.status,
+            statusText: response.statusText,
+            data,
+          });
 
           if (response.ok && data.success && data.token) {
             authToken = data.token;
@@ -563,7 +623,13 @@ ${JSON.stringify(responseData.data, null, 2)}`;
           }
         } catch (error) {
           console.error("Login failed:", error);
-          displayResponse({ error: error.message }, false);
+          displayResponse({
+            url: `${baseUrl}/api/auth/login`,
+            method: "POST",
+            status: "ERROR",
+            statusText: error.message,
+            data: { error: error.message },
+          });
           alert(`Network error: ${error.message}`);
         }
       }
@@ -647,6 +713,7 @@ ${JSON.stringify(responseData.data, null, 2)}`;
         const name = document.getElementById("eventName").value;
         const description = document.getElementById("eventDescription").value;
         const location = document.getElementById("eventLocation").value;
+        const categoryId = document.getElementById("eventCategoryId").value;
 
         if (!name) {
           alert("Please enter an event name");
@@ -654,18 +721,34 @@ ${JSON.stringify(responseData.data, null, 2)}`;
         }
 
         try {
-          await apiCall("/api/events", {
+          const eventData = {
+            name,
+            description: description || "No description provided",
+            location: location || "No location specified",
+            eventDate: new Date().toISOString(),
+          };
+
+          // Only add categoryId if one is selected
+          if (categoryId) {
+            eventData.categoryId = parseInt(categoryId);
+          }
+
+          const result = await apiCall("/api/events", {
             method: "POST",
-            body: JSON.stringify({
-              name,
-              description,
-              location,
-              eventDate: new Date().toISOString(),
-              categoryId: 1, // Default category ID
-            }),
+            body: JSON.stringify(eventData),
           });
+
+          // Clear form after successful creation
+          if (result.response.ok) {
+            document.getElementById("eventName").value = "";
+            document.getElementById("eventDescription").value = "";
+            document.getElementById("eventLocation").value = "";
+            document.getElementById("eventCategoryId").value = "";
+            alert("Event created successfully!");
+          }
         } catch (error) {
           console.error("Create event failed:", error);
+          alert(`Failed to create event: ${error.message}`);
         }
       }
 
@@ -683,6 +766,116 @@ ${JSON.stringify(responseData.data, null, 2)}`;
           await apiCall("/api/certificates/admin");
         } catch (error) {
           console.error("Get all certificates failed:", error);
+        }
+      }
+
+      async function showGeneratedCertificates() {
+        try {
+          const result = await apiCall("/api/certificates/admin");
+
+          if (result.response.ok && result.data.success) {
+            const certificates = result.data.data;
+
+            // Create a formatted display for certificates
+            let certificateDisplay = `
+              <div class="mt-4 p-4 bg-gray-100 rounded-lg">
+                <h3 class="text-lg font-bold mb-4 text-gray-800">Generated Certificates (${certificates.length})</h3>
+            `;
+
+            if (certificates.length === 0) {
+              certificateDisplay += `
+                <p class="text-gray-600">No certificates have been generated yet.</p>
+              `;
+            } else {
+              certificates.forEach((cert, index) => {
+                certificateDisplay += `
+                  <div class="mb-4 p-3 border border-gray-300 rounded bg-white">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <div><strong>Certificate #:</strong> ${
+                        cert.certificateNumber
+                      }</div>
+                      <div><strong>Recipient:</strong> ${
+                        cert.recipientName
+                      }</div>
+                      <div><strong>Email:</strong> ${cert.recipientEmail}</div>
+                      <div><strong>Issue Date:</strong> ${new Date(
+                        cert.issueDate
+                      ).toLocaleDateString()}</div>
+                      <div><strong>Event:</strong> ${
+                        cert.Event ? cert.Event.name : "N/A"
+                      }</div>
+                      <div><strong>Verified:</strong> ${
+                        cert.isVerified ? "✅ Yes" : "❌ No"
+                      }</div>
+                      <div><strong>Email Sent:</strong> ${
+                        cert.emailSent ? "✅ Yes" : "❌ No"
+                      }</div>
+                      <div class="md:col-span-2">
+                        <strong>Verification URL:</strong> 
+                        <a href="${
+                          cert.verificationUrl
+                        }" target="_blank" class="text-blue-600 hover:underline break-all">
+                          ${cert.verificationUrl}
+                        </a>
+                      </div>
+                      ${
+                        cert.certificatePath
+                          ? `
+                        <div class="md:col-span-2">
+                          <strong>Certificate File:</strong> 
+                          <a href="${baseUrl}/${cert.certificatePath.replace(
+                              /^.*[\\\/]uploads[\\\/]/,
+                              "uploads/"
+                            )}" target="_blank" class="text-green-600 hover:underline">
+                            View Certificate Image
+                          </a>
+                        </div>
+                      `
+                          : ""
+                      }
+                    </div>
+                  </div>
+                `;
+              });
+            }
+
+            certificateDisplay += `</div>`;
+
+            // Display in the response area
+            displayResponse({
+              url: "/api/certificates/admin",
+              method: "GET",
+              status: 200,
+              statusText: "OK",
+              data: {
+                message: "Certificates displayed in formatted view",
+                formatted_display: certificateDisplay,
+                raw_data: certificates,
+              },
+            });
+
+            // Also inject the formatted display into the response output
+            setTimeout(() => {
+              const responseOutput = document.getElementById("responseOutput");
+              if (responseOutput) {
+                responseOutput.innerHTML = `
+                  <div class="text-green-400 mb-4">[${new Date().toLocaleTimeString()}] GET /api/certificates/admin<br>Status: 200 OK</div>
+                  ${certificateDisplay}
+                  <details class="mt-4">
+                    <summary class="cursor-pointer text-blue-400 hover:text-blue-300">View Raw JSON Data</summary>
+                    <pre class="mt-2 text-xs">${JSON.stringify(
+                      result.data,
+                      null,
+                      2
+                    )}</pre>
+                  </details>
+                `;
+              }
+            }, 100);
+          }
+        } catch (error) {
+          console.error("Show generated certificates failed:", error);
+          alert(`Failed to load certificates: ${error.message}`);
         }
       }
 
@@ -737,6 +930,53 @@ ${JSON.stringify(responseData.data, null, 2)}`;
           });
         } catch (error) {
           console.error("Upload template failed:", error);
+        }
+      }
+
+      async function generateSingleCertificate() {
+        const recipientName = document.getElementById(
+          "generateRecipientName"
+        ).value;
+        const recipientEmail = document.getElementById(
+          "generateRecipientEmail"
+        ).value;
+        const eventId = document.getElementById("generateEventId").value;
+        const templatePath = document.getElementById(
+          "generateTemplatePath"
+        ).value;
+
+        if (!recipientName || !recipientEmail || !eventId || !templatePath) {
+          alert(
+            "Please fill in all fields: Recipient Name, Email, Event ID, and Template Path"
+          );
+          return;
+        }
+
+        try {
+          const result = await apiCall(
+            "/api/certificates/admin/generate-single",
+            {
+              method: "POST",
+              body: JSON.stringify({
+                recipientName,
+                recipientEmail,
+                eventId,
+                templatePath,
+              }),
+            }
+          );
+
+          // Clear form after successful creation
+          if (result.response.ok) {
+            document.getElementById("generateRecipientName").value = "";
+            document.getElementById("generateRecipientEmail").value = "";
+            document.getElementById("generateEventId").value = "";
+            document.getElementById("generateTemplatePath").value = "";
+            alert("Certificate generated successfully!");
+          }
+        } catch (error) {
+          console.error("Generate certificate failed:", error);
+          alert(`Failed to generate certificate: ${error.message}`);
         }
       }
 

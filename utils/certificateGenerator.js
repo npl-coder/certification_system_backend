@@ -2,6 +2,65 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs-extra');
 
+// Helper function to validate mapping file structure
+const validateMapping = (mapping) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return false;
+  }
+  
+  if (!mapping.fields || typeof mapping.fields !== 'object') {
+    return false;
+  }
+  
+  // Validate each field has required properties
+  for (const [fieldKey, field] of Object.entries(mapping.fields)) {
+    if (!field || typeof field !== 'object') {
+      console.warn(`Invalid field configuration for ${fieldKey}`);
+      continue;
+    }
+    
+    if (typeof field.x !== 'number' || typeof field.y !== 'number') {
+      console.warn(`Invalid coordinates for field ${fieldKey}`);
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+// Helper function to escape XML/SVG special characters
+const escapeXml = (text) => {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+// Helper function to get field value with fallback
+const getFieldValue = (dataFields, fieldKey) => {
+  // Try different variations of field names
+  const variations = [
+    fieldKey,
+    fieldKey.toLowerCase(),
+    fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1),
+    // Add common aliases
+    ...(fieldKey === 'name' ? ['recipientName', 'participant_name', 'full_name'] : []),
+    ...(fieldKey === 'eventName' ? ['event_name', 'event', 'competition'] : []),
+    ...(fieldKey === 'eventDate' ? ['event_date', 'date', 'competition_date'] : []),
+    ...(fieldKey === 'certificateNumber' ? ['certificate_number', 'cert_number', 'certificate_id'] : []),
+  ];
+  
+  for (const variation of variations) {
+    if (dataFields[variation] !== undefined && dataFields[variation] !== null) {
+      return dataFields[variation];
+    }
+  }
+  
+  return null;
+};
+
 // Generate certificate from template
 const generateCertificate = async (data) => {
   try {
@@ -11,6 +70,7 @@ const generateCertificate = async (data) => {
       eventDate,
       templatePath,
       certificateNumber,
+      mappingPath,
       ...additionalFields
     } = data;
 
@@ -24,6 +84,26 @@ const generateCertificate = async (data) => {
 
     // Load template
     const templateBuffer = await fs.readFile(templatePath);
+    const templateImage = sharp(templateBuffer);
+    const templateMetadata = await templateImage.metadata();
+    
+    // Load mapping configuration if provided
+    let mapping = null;
+    if (mappingPath && await fs.pathExists(mappingPath)) {
+      try {
+        const mappingData = await fs.readFile(mappingPath, 'utf8');
+        const parsedMapping = JSON.parse(mappingData);
+        
+        if (validateMapping(parsedMapping)) {
+          mapping = parsedMapping;
+          console.log('Successfully loaded and validated mapping file');
+        } else {
+          console.warn('Invalid mapping file structure, using default positioning');
+        }
+      } catch (error) {
+        console.warn('Error parsing mapping file, using default positioning:', error.message);
+      }
+    }
     
     // Format date
     const formattedDate = new Date(eventDate).toLocaleDateString('en-US', {
@@ -32,36 +112,162 @@ const generateCertificate = async (data) => {
       day: 'numeric'
     });
 
-    // Create SVG overlay with text (simplified version)
-    const svgText = `
-      <svg width="800" height="600">
+    // Prepare data fields for mapping
+    const dataFields = {
+      name: recipientName,
+      eventName: eventName,
+      eventDate: formattedDate,
+      certificateNumber: certificateNumber,
+      ...additionalFields
+    };
+
+    // Log available fields for debugging
+    if (mapping) {
+      console.log('Available data fields:', Object.keys(dataFields));
+      console.log('Mapping expects fields:', Object.keys(mapping.fields));
+    }
+
+    // Create SVG overlay with text
+    let svgText;
+    
+    if (mapping && mapping.fields) {
+      // Use mapping configuration for positioning
+      const templateWidth = templateMetadata.width || mapping.template?.width || 800;
+      const templateHeight = templateMetadata.height || mapping.template?.height || 600;
+      
+      // Calculate scaling factor if mapping template size differs from actual template
+      const scaleX = mapping.template?.width ? templateWidth / mapping.template.width : 1;
+      const scaleY = mapping.template?.height ? templateHeight / mapping.template.height : 1;
+      
+      console.log('Template dimensions:', templateWidth, 'x', templateHeight);
+      console.log('Mapping template dimensions:', mapping.template?.width || 'not specified', 'x', mapping.template?.height || 'not specified');
+      console.log('Scale factors:', { scaleX, scaleY });
+      
+      svgText = `<svg width="${templateWidth}" height="${templateHeight}">`;
+      
+      // Add styles
+      svgText += '<style>';
+      Object.keys(mapping.fields).forEach(fieldKey => {
+      const field = mapping.fields[fieldKey];
+      const className = `field-${fieldKey}`;
+      // Add font fallbacks for better compatibility
+      const fontFamily = field.fontFamily ? 
+        `${field.fontFamily}, Arial, sans-serif` : 
+        'Arial, sans-serif';
+      
+      svgText += `
+        .${className} { 
+        fill: ${field.color || '#333'}; 
+        font-size: ${Math.round((field.fontSize || 24) * Math.min(scaleX, scaleY))}px; 
+        font-weight: ${field.fontWeight || 'normal'}; 
+        font-family: ${fontFamily}; 
+        }`;
+      });
+      svgText += '</style>';
+      
+      // Add text elements based on mapping
+      Object.keys(mapping.fields).forEach(fieldKey => {
+      const field = mapping.fields[fieldKey];
+      const value = getFieldValue(dataFields, fieldKey);
+      
+      if (value !== undefined && value !== null) {
+        const className = `field-${fieldKey}`;
+        const textValue = escapeXml(`${field.prefix || ''}${value}${field.suffix || ''}`);
+        const textAnchor = field.textAlign === 'center' ? 'middle' : 
+                 field.textAlign === 'right' ? 'end' : 'start';
+        
+        // Apply scaling to coordinates and move text down by 100 in y
+        const scaledX = Math.round(field.x * scaleX);
+        const scaledY = Math.round(field.y * scaleY) + 100;
+        
+        svgText += `<text x="${scaledX}" y="${scaledY}" text-anchor="${textAnchor}" class="${className}">${textValue}</text>`;
+      }
+      });
+      
+      svgText += '</svg>';
+    } else {
+      // Fallback to default positioning
+      const templateWidth = templateMetadata.width || 800;
+      const templateHeight = templateMetadata.height || 600;
+      
+      svgText = `
+      <svg width="${templateWidth}" height="${templateHeight}">
         <style>
-          .recipient { fill: #333; font-size: 48px; font-weight: bold; font-family: Arial, sans-serif; }
-          .event { fill: #666; font-size: 36px; font-family: Arial, sans-serif; }
-          .certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
-          .date { fill: #666; font-size: 24px; font-family: Arial, sans-serif; }
+        .recipient { fill: #333; font-size: 48px; font-weight: bold; font-family: Arial, sans-serif; }
+        .event { fill: #666; font-size: 36px; font-family: Arial, sans-serif; }
+        .certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
+        .date { fill: #666; font-size: 24px; font-family: Arial, sans-serif; }
         </style>
-        <text x="400" y="250" text-anchor="middle" class="recipient">${recipientName}</text>
-        <text x="400" y="320" text-anchor="middle" class="event">${eventName}</text>
-        <text x="400" y="370" text-anchor="middle" class="date">${formattedDate}</text>
-        <text x="400" y="520" text-anchor="middle" class="certnum">Certificate #${certificateNumber}</text>
+        <text x="${templateWidth/2}" y="${templateHeight*0.42 + 200}" text-anchor="middle" class="recipient">${escapeXml(recipientName)}</text>
+        <text x="${templateWidth/2}" y="${templateHeight*0.53 + 200}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
+        <text x="${templateWidth/2}" y="${templateHeight*0.62 + 200}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
+        <text x="${templateWidth/2}" y="${templateHeight*0.87 + 200}" text-anchor="middle" class="certnum">Certificate #${escapeXml(certificateNumber)}</text>
       </svg>
-    `;
+      `;
+    }
+
+    // Validate SVG content
+    if (!svgText.includes('<svg') || !svgText.includes('</svg>')) {
+      throw new Error('Invalid SVG content generated');
+    }
+    
+    console.log('SVG content preview (first 500 chars):', svgText.substring(0, 500));
 
     // Process image with text overlay
-    await sharp(templateBuffer)
-      .composite([
-        {
-          input: Buffer.from(svgText),
-          top: 0,
-          left: 0
-        }
-      ])
-      .png()
-      .toFile(outputPath);
+    try {
+      console.log('Starting image processing...');
+      console.log('Template dimensions:', templateMetadata.width, 'x', templateMetadata.height);
+      console.log('SVG overlay length:', svgText.length);
+      
+      await sharp(templateBuffer)
+        .composite([
+          {
+            input: Buffer.from(svgText),
+            top: 0,
+            left: 0
+          }
+        ])
+        .png()
+        .toFile(outputPath);
 
-    console.log(`Certificate generated: ${outputPath}`);
-    return outputPath;
+      console.log(`Certificate generated: ${outputPath}`);
+      
+      if (mapping) {
+        console.log('Certificate generated using mapping-based positioning');
+      } else {
+        console.log('Certificate generated using default positioning');
+      }
+      
+      // Verify the file was created and has content
+      const stats = await fs.stat(outputPath);
+      if (stats.size === 0) {
+        throw new Error('Generated certificate file is empty');
+      }
+      
+      console.log(`Certificate file size: ${stats.size} bytes`);
+      
+      // Return both file path and URL for frontend access
+      const certificateUrl = `/uploads/certificates/${outputFilename}`;
+      
+      return {
+        filePath: outputPath,
+        url: certificateUrl,
+        filename: outputFilename
+      };
+    } catch (imageError) {
+      console.error('Error during image processing:', imageError);
+      
+      // Clean up partial file if it exists
+      try {
+        if (await fs.pathExists(outputPath)) {
+          await fs.unlink(outputPath);
+        }
+      } catch (cleanupError) {
+        console.warn('Could not clean up partial file:', cleanupError.message);
+      }
+      
+      throw new Error(`Image processing failed: ${imageError.message}`);
+    }
   } catch (error) {
     console.error('Error generating certificate:', error);
     throw error;

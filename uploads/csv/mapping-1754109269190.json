@@ -1,0 +1,30 @@
+{
+  "name": {
+    "x": 400,
+    "y": 300,
+    "fontSize": 24,
+    "fontFamily": "Arial",
+    "color": "#000000"
+  },
+  "course": {
+    "x": 400,
+    "y": 350,
+    "fontSize": 18,
+    "fontFamily": "Arial",
+    "color": "#000000"
+  },
+  "completion_date": {
+    "x": 400,
+    "y": 400,
+    "fontSize": 14,
+    "fontFamily": "Arial",
+    "color": "#666666"
+  },
+  "grade": {
+    "x": 600,
+    "y": 450,
+    "fontSize": 16,
+    "fontFamily": "Arial",
+    "color": "#000000"
+  }
+}
