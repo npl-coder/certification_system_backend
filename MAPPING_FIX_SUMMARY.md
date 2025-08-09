@@ -105,7 +105,7 @@ The system now properly supports mapping.json with coordinate scaling:
   "fields": {
     "name": {
       "x": 800, "y": 750,
-      "fontSize": 48, "fontWeight": "bold",
+      "fontSize": 61, "fontWeight": "bold",
       "color": "#333333", "textAlign": "center",
       "fontFamily": "Amsterdam"
     }

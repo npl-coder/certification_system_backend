@@ -162,7 +162,7 @@ const generateCertificate = async (data) => {
       svgText += `
         .${className} { 
         fill: ${field.color || '#333'}; 
-        font-size: ${Math.round((field.fontSize || 24) * Math.min(scaleX, scaleY))}px; 
+        font-size: ${Math.round((field.fontSize || 61) * Math.min(scaleX, scaleY))}px; 
         font-weight: ${field.fontWeight || 'normal'}; 
         font-family: ${fontFamily}; 
         }`;
@@ -188,6 +188,16 @@ const generateCertificate = async (data) => {
       }
       });
       
+      // Always add footer certificate number at the bottom center
+      const footerFontSize = Math.round(18 * Math.min(scaleX, scaleY));
+      const footerY = Math.max(footerFontSize + 6, Math.round(templateHeight - (24 * Math.min(scaleX, scaleY))));
+      svgText += `
+        <style>
+          .footer-certnum { fill: #666; font-size: ${footerFontSize}px; font-family: Arial, sans-serif; }
+        </style>
+        <text x="${Math.round(templateWidth/2)}" y="${footerY}" text-anchor="middle" class="footer-certnum">Certificate #${escapeXml(certificateNumber)}</text>
+      `;
+
       svgText += '</svg>';
     } else {
       // Fallback to default positioning
@@ -201,15 +211,16 @@ const generateCertificate = async (data) => {
         font-family: 'Amsterdam';
         src: url('/fonts/Amsterdam.ttf') format('truetype');
       }
-      .recipient { fill: #333; font-size: 48px; font-weight: bold; font-family: 'Amsterdam', Arial, sans-serif; }
+      .recipient { fill: #333; font-size: 61px; font-weight: bold; font-family: 'Amsterdam', Arial, sans-serif; }
       .event { fill: #666; font-size: 36px; font-family: Arial, sans-serif; }
       .certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
       .date { fill: #666; font-size: 24px; font-family: Arial, sans-serif; }
+      .footer-certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
       </style>
       <text x="${templateWidth/2}" y="${templateHeight*0.42 + 200}" text-anchor="middle" class="recipient">${escapeXml(recipientName)}</text>
-      <text x="${templateWidth/2}" y="${templateHeight*0.53 + 200}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
-      <text x="${templateWidth/2}" y="${templateHeight*0.62 + 200}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
-      <text x="${templateWidth/2}" y="${templateHeight*0.87 + 200}" text-anchor="middle" class="certnum">Certificate #${escapeXml(certificateNumber)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.53 + 350}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.62 + 350}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight - 24}" text-anchor="middle" class="footer-certnum">Certificate Number:${escapeXml(certificateNumber)}</text>
       </svg>
       `;
     }
@@ -255,12 +266,15 @@ const generateCertificate = async (data) => {
       console.log(`Certificate file size: ${stats.size} bytes`);
       
       // Return both file path and URL for frontend access
-      const certificateUrl = `/uploads/certificates/${outputFilename}`;
+      // Ensure the URL uses the base URL if available for absolute URL
+      const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+      const certificateUrl = `${baseUrl}/uploads/certificates/${outputFilename}`;
       
       return {
         filePath: outputPath,
         url: certificateUrl,
-        filename: outputFilename
+        filename: outputFilename,
+        relativeUrl: `/uploads/certificates/${outputFilename}` // Also provide relative URL
       };
     } catch (imageError) {
       console.error('Error during image processing:', imageError);

@@ -199,7 +199,13 @@ router.get("/download", downloadCertificate); // Support query parameter
 router.get("/my-certificates", protect, getMyCertificates);
 
 // Certificate CRUD operations (before admin middleware)
-router.put("/:id", protect, authorize("admin"), uploadTemplateMiddleware.single("image"), updateCertificate);
+router.put(
+  "/:id",
+  protect,
+  authorize("admin"),
+  uploadTemplateMiddleware.single("image"),
+  updateCertificate
+);
 router.delete("/:id", protect, authorize("admin"), deleteCertificate);
 
 // Admin routes
@@ -227,6 +233,13 @@ router.post(
   },
   generateBulkCertificates
 );
-router.post("/admin/generate-single", protect, authorize("admin"), generateSingleCertificate);
+// Allow optional template upload with single generation
+router.post(
+  "/admin/generate-single",
+  protect,
+  authorize("admin"),
+  uploadTemplateMiddleware.single("template"),
+  generateSingleCertificate
+);
 
 module.exports = router;

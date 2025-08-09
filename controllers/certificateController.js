@@ -183,7 +183,7 @@ exports.generateBulkCertificates = async (req, res) => {
                 certificateNumber,
                 templatePath: templateFile.path,
                 certificatePath: certificateResult.filePath,
-                certificateUrl: certificateResult.url,
+                certificateUrl: certificateResult.url, // Use the full URL
                 verificationUrl,
                 eventId: eventIdInt,
                 issuedTo: user ? user.user_id : null,
@@ -279,13 +279,55 @@ exports.generateBulkCertificates = async (req, res) => {
 // Generate single certificate
 exports.generateSingleCertificate = async (req, res) => {
   try {
-    const { recipientName, recipientEmail, eventId, templatePath } = req.body;
+    // Support aliases from frontend
+    const body = req.body || {};
+    const recipientName = body.recipientName || body.name;
+    const recipientEmail = body.recipientEmail || body.email;
+    const rawEventId = body.eventId;
 
-    if (!recipientName || !recipientEmail || !eventId || !templatePath) {
+    // Determine template path in a flexible way
+    let resolvedTemplatePath = body.templatePath || null;
+
+    // If client uploaded a template file in this request
+    if (req.file && req.file.path) {
+      resolvedTemplatePath = req.file.path;
+    }
+
+    // If a filename is provided, resolve against uploads/templates
+    if (!resolvedTemplatePath && body.templateFilename) {
+      const templatesDir = path.join(__dirname, "../uploads/templates");
+      resolvedTemplatePath = path.join(templatesDir, body.templateFilename);
+    }
+
+    // If still not provided, use the most recent template in uploads/templates
+    if (!resolvedTemplatePath) {
+      try {
+        const templatesDir = path.join(__dirname, "../uploads/templates");
+        if (fs.existsSync(templatesDir)) {
+          const files = fs
+            .readdirSync(templatesDir)
+            .filter((f) => /\.(png|jpg|jpeg)$/i.test(f))
+            .map((name) => ({
+              name,
+              time: fs.statSync(path.join(templatesDir, name)).mtime.getTime(),
+            }))
+            .sort((a, b) => b.time - a.time);
+          if (files.length > 0) {
+            resolvedTemplatePath = path.join(templatesDir, files[0].name);
+          }
+        }
+      } catch (e) {
+        // ignore and fall through to validation error
+      }
+    }
+
+    // Validate inputs
+    const eventId = parseInt(rawEventId, 10);
+    if (!recipientName || !recipientEmail || !eventId || !resolvedTemplatePath) {
       return res.status(400).json({
         success: false,
         message:
-          "Recipient name, email, event ID, and template path are required",
+          "Recipient name, email, event ID, and template are required. You may upload 'template' file, pass 'templatePath', 'templateFilename', or rely on most recent uploaded template.",
       });
     }
 
@@ -321,13 +363,13 @@ exports.generateSingleCertificate = async (req, res) => {
 
     try {
       // Generate the certificate image
-      const certificatePath = await generateCertificate({
+      const certificateResult = await generateCertificate({
         recipientName,
         eventName: event.name,
         eventDate: event.eventDate,
-        templatePath,
+        templatePath: resolvedTemplatePath,
         certificateNumber,
-        mappingPath: null, // Single generation doesn't support mapping files yet
+        mappingPath: null,
       });
 
       // Save certificate to database
@@ -337,8 +379,9 @@ exports.generateSingleCertificate = async (req, res) => {
         certificateNumber,
         eventId,
         issueDate: new Date(),
-        certificatePath,
-        templatePath,
+        certificatePath: certificateResult.filePath,
+        certificateUrl: certificateResult.url,
+        templatePath: resolvedTemplatePath,
         verificationUrl: `${
           process.env.BASE_URL || "http://localhost:3000"
         }/api/certificates/verify/${certificateNumber}`,
@@ -390,6 +433,12 @@ exports.verifyCertificate = async (req, res) => {
         {
           model: Event,
           attributes: ["name", "eventDate", "description"],
+          include: [
+            {
+              model: Category,
+              attributes: ["name"],
+            },
+          ],
         },
       ],
     });
@@ -408,16 +457,37 @@ exports.verifyCertificate = async (req, res) => {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const certificateDownloadUrl = `${baseUrl}/api/certificates/download/${certificate.certificateNumber}`;
     
+    // Provide multiple URL options for certificate access
+    let certificateDisplayUrl = certificate.certificateUrl;
+    
+    // If the stored URL is relative, make it absolute
+    if (certificateDisplayUrl && certificateDisplayUrl.startsWith('/uploads/')) {
+      certificateDisplayUrl = `${baseUrl}${certificateDisplayUrl}`;
+    }
+    
+    // Fallback to download URL if file doesn't exist at static path
+    if (!certificateExists) {
+      certificateDisplayUrl = certificateDownloadUrl;
+    }
+    
     res.status(200).json({
       success: true,
       message: "Certificate verified successfully",
       data: {
         certificateNumber: certificate.certificateNumber,
+        name: certificate.recipientName, // Frontend expects 'name'
+        email: certificate.recipientEmail, // Frontend expects 'email'
+        event: certificate.Event ? certificate.Event.name : 'Unknown Event', // Frontend expects event as string
+        category: certificate.Event && certificate.Event.Category ? certificate.Event.Category.name : 'Unknown Category', // Frontend expects category
+        created_at: certificate.createdAt, // Frontend expects 'created_at'
+        certificate_url: certificateDisplayUrl, // Use the processed URL
+        
+        // Keep the additional fields for backward compatibility
         recipientName: certificate.recipientName,
         recipientEmail: certificate.recipientEmail,
-        event: certificate.Event,
+        eventObject: certificate.Event,
         issuedAt: certificate.createdAt,
-        certificateUrl: certificate.certificateUrl, // Original URL if stored
+        certificateUrl: certificateDisplayUrl, // Also update this field
         certificateDownloadUrl, // Direct download URL
         certificateExists, // Let frontend know if file exists
         additionalFields: certificate.additionalFields,
@@ -594,14 +664,15 @@ exports.updateCertificate = async (req, res) => {
       // Regenerate certificate if template changed
       try {
         const event = await Event.findByPk(eventId || certificate.eventId);
-        const certificatePath = await generateCertificate({
+        const certificateResult = await generateCertificate({
           recipientName: recipientName || certificate.recipientName,
           eventName: event.name,
           eventDate: event.eventDate,
           templatePath: req.file.path,
           certificateNumber: certificate.certificateNumber,
         });
-        updateData.certificatePath = certificatePath;
+        updateData.certificatePath = certificateResult.filePath;
+        updateData.certificateUrl = certificateResult.url; // Update URL too
       } catch (genError) {
         console.error("Error regenerating certificate:", genError);
       }
