@@ -579,7 +579,7 @@ exports.getAllCertificates = async (req, res) => {
       whereClause.isVerified = isVerified === "true";
     }
 
-    const certificates = await Certificate.findAll({
+      const certificates = await Certificate.findAll({
       where: whereClause,
       include: [
         {
@@ -595,11 +595,45 @@ exports.getAllCertificates = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    res.status(200).json({
-      success: true,
-      count: certificates.length,
-      data: certificates,
-    });
+      // Enrich with absolute URLs and preview URL
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const enriched = certificates.map((cert) => {
+        const c = cert.toJSON();
+        // Prefer building URL from current request + actual filename to avoid stale BASE_URL
+        const fileExists = c.certificatePath ? fs.existsSync(c.certificatePath) : false;
+        const filename = c.certificatePath ? path.basename(c.certificatePath) : null;
+        let displayUrl = filename ? `${baseUrl}/uploads/certificates/${filename}` : c.certificateUrl;
+        if (!displayUrl && c.relativeUrl) {
+          displayUrl = `${baseUrl}${c.relativeUrl}`;
+        }
+        const downloadUrl = `${baseUrl}/api/certificates/download/${c.certificateNumber}`;
+        if (!fileExists) {
+          displayUrl = downloadUrl;
+        }
+
+        // Compute preview URL if preview exists
+        const previewsDir = path.join(__dirname, '../uploads/certificates');
+        const previewFilename = `cert-${c.certificateNumber}-preview.webp`;
+        const previewPath = path.join(previewsDir, previewFilename);
+        let previewUrl = null;
+        if (fs.existsSync(previewPath)) {
+          previewUrl = `${baseUrl}/uploads/certificates/${previewFilename}`;
+        }
+
+        return {
+          ...c,
+          certificate_url: displayUrl, // convenience for FE
+          certificateDownloadUrl: downloadUrl,
+          certificateExists: fileExists,
+          previewUrl,
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        count: enriched.length,
+        data: enriched,
+      });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -612,7 +646,7 @@ exports.getAllCertificates = async (req, res) => {
 // Get user's certificates
 exports.getMyCertificates = async (req, res) => {
   try {
-    const certificates = await Certificate.findAll({
+      const certificates = await Certificate.findAll({
       where: { issuedTo: req.user.user_id },
       include: [
         {
@@ -623,11 +657,42 @@ exports.getMyCertificates = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    res.status(200).json({
-      success: true,
-      count: certificates.length,
-      data: certificates,
-    });
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const enriched = certificates.map((cert) => {
+        const c = cert.toJSON();
+        const fileExists = c.certificatePath ? fs.existsSync(c.certificatePath) : false;
+        const filename = c.certificatePath ? path.basename(c.certificatePath) : null;
+        let displayUrl = filename ? `${baseUrl}/uploads/certificates/${filename}` : c.certificateUrl;
+        if (!displayUrl && c.relativeUrl) {
+          displayUrl = `${baseUrl}${c.relativeUrl}`;
+        }
+        const downloadUrl = `${baseUrl}/api/certificates/download/${c.certificateNumber}`;
+        if (!fileExists) {
+          displayUrl = downloadUrl;
+        }
+
+        const previewsDir = path.join(__dirname, '../uploads/certificates');
+        const previewFilename = `cert-${c.certificateNumber}-preview.webp`;
+        const previewPath = path.join(previewsDir, previewFilename);
+        let previewUrl = null;
+        if (fs.existsSync(previewPath)) {
+          previewUrl = `${baseUrl}/uploads/certificates/${previewFilename}`;
+        }
+
+        return {
+          ...c,
+          certificate_url: displayUrl,
+          certificateDownloadUrl: downloadUrl,
+          certificateExists: fileExists,
+          previewUrl,
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        count: enriched.length,
+        data: enriched,
+      });
   } catch (error) {
     res.status(500).json({
       success: false,

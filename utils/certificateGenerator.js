@@ -78,9 +78,11 @@ const generateCertificate = async (data) => {
     const certDir = path.join(__dirname, '../uploads/certificates');
     await fs.ensureDir(certDir);
 
-    // Generate output filename
+    // Generate output filenames (full PNG + WebP preview)
     const outputFilename = `cert-${certificateNumber}.png`;
     const outputPath = path.join(certDir, outputFilename);
+    const previewFilename = `cert-${certificateNumber}-preview.webp`;
+    const previewPath = path.join(certDir, previewFilename);
 
     // Load template
     const templateBuffer = await fs.readFile(templatePath);
@@ -218,8 +220,8 @@ const generateCertificate = async (data) => {
       .footer-certnum { fill: #666; font-size: 18px; font-family: Arial, sans-serif; }
       </style>
       <text x="${templateWidth/2}" y="${templateHeight*0.42 + 200}" text-anchor="middle" class="recipient">${escapeXml(recipientName)}</text>
-      <text x="${templateWidth/2}" y="${templateHeight*0.53 + 350}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
-      <text x="${templateWidth/2}" y="${templateHeight*0.62 + 350}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.53 + 300}" text-anchor="middle" class="event">${escapeXml(eventName)}</text>
+      <text x="${templateWidth/2}" y="${templateHeight*0.62 + 300}" text-anchor="middle" class="date">${escapeXml(formattedDate)}</text>
       <text x="${templateWidth/2}" y="${templateHeight - 24}" text-anchor="middle" class="footer-certnum">Certificate Number:${escapeXml(certificateNumber)}</text>
       </svg>
       `;
@@ -238,16 +240,25 @@ const generateCertificate = async (data) => {
       console.log('Template dimensions:', templateMetadata.width, 'x', templateMetadata.height);
       console.log('SVG overlay length:', svgText.length);
       
-      await sharp(templateBuffer)
+      // Compose once into a buffer
+      const composedBuffer = await sharp(templateBuffer)
         .composite([
           {
             input: Buffer.from(svgText),
             top: 0,
-            left: 0
-          }
+            left: 0,
+          },
         ])
-        .png()
-        .toFile(outputPath);
+        .toBuffer();
+
+      // Write full-quality PNG
+      await sharp(composedBuffer).png().toFile(outputPath);
+
+      // Also write a compressed WebP preview (downsized for faster loading)
+      await sharp(composedBuffer)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toFile(previewPath);
 
       console.log(`Certificate generated: ${outputPath}`);
       
@@ -257,24 +268,30 @@ const generateCertificate = async (data) => {
         console.log('Certificate generated using default positioning');
       }
       
-      // Verify the file was created and has content
+      // Verify the files were created and have content
       const stats = await fs.stat(outputPath);
+      const previewExists = await fs.pathExists(previewPath);
+      const previewStats = previewExists ? await fs.stat(previewPath) : { size: 0 };
       if (stats.size === 0) {
         throw new Error('Generated certificate file is empty');
       }
-      
-      console.log(`Certificate file size: ${stats.size} bytes`);
+      console.log(`Certificate file size: ${stats.size} bytes, preview: ${previewStats.size} bytes`);
       
       // Return both file path and URL for frontend access
       // Ensure the URL uses the base URL if available for absolute URL
       const baseUrl = process.env.BASE_URL || "http://localhost:3000";
       const certificateUrl = `${baseUrl}/uploads/certificates/${outputFilename}`;
+      const previewUrl = `${baseUrl}/uploads/certificates/${previewFilename}`;
       
       return {
         filePath: outputPath,
         url: certificateUrl,
         filename: outputFilename,
-        relativeUrl: `/uploads/certificates/${outputFilename}` // Also provide relative URL
+        relativeUrl: `/uploads/certificates/${outputFilename}` , // Also provide relative URL
+        previewPath,
+        previewUrl,
+        previewFilename,
+        previewRelativeUrl: `/uploads/certificates/${previewFilename}`
       };
     } catch (imageError) {
       console.error('Error during image processing:', imageError);

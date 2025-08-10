@@ -27,8 +27,15 @@ app.use(morgan("dev")); // Logging
 app.use(express.json({ limit: '50mb' })); // Parse JSON with increased limit
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Parse URL-encoded data with increased limit
 
-// Serve static files for certificates
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve static files for certificates with aggressive caching
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  })
+);
 
 // Routes
 app.use("/api/auth", authRoutes);
